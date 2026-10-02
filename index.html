@@ -150,6 +150,7 @@ header h1{font-size:20px;margin:0}
   <label><input type="checkbox" id="optWords"> Zeit in Worten</label>
   <label><input type="checkbox" id="optSound" checked> Ton</label>
 </div>
+<label class="opts" style="margin-top:18px"><input type="checkbox" id="optRing"> Nur passenden Zahlenring zeigen: 1–12 Uhr außen, 13–24 Uhr innen</label>
 <button class="small" id="reset" style="width:100%;margin-top:24px;color:var(--muted);position:relative;overflow:hidden"><span id="resetfill" style="position:absolute;left:0;top:0;bottom:0;width:0;background:rgba(216,50,43,.2)"></span>↺ Zurücksetzen: 2 s gedrückt halten</button>
 <canvas id="confetti"></canvas>
 <div class="overlay" id="party" hidden></div>
@@ -162,7 +163,7 @@ const S = {
   h: 10, m: 10, mode: "frei", level: 1, walzenVisible: true,
   showTz: true, showWords: false, stars: 0,
   task: null, ans: {h: 12, m: 0}, tries: 0, done: false,
-  streak: 0, sound: true
+  streak: 0, sound: true, oneRing: false
 };
 try {
   S.stars = +localStorage.getItem("uhr-stars") || 0;
@@ -223,6 +224,7 @@ function label(txt, r, deg, size, fill, weight) {
   const t = mk("text", {x, y, "text-anchor": "middle", "dominant-baseline": "central",
     "font-size": size, "font-weight": weight, fill, "font-family": "system-ui,sans-serif"});
   t.textContent = txt;
+  return t;
 }
 const face = mk("circle", {cx: C, cy: C, r: 198, fill: "#fff", stroke: "#1d2433", "stroke-width": 3});
 for (let i = 0; i < 60; i++) {
@@ -230,8 +232,20 @@ for (let i = 0; i < 60; i++) {
   mk("line", {x1, y1, x2, y2, stroke: five ? "#d8322b" : "#8a94ad", "stroke-width": five ? 3 : 1.5});
 }
 for (let n = 5; n <= 60; n += 5) label(n, 165, n * 6, 13, "#d8322b", 600);
-for (let n = 1; n <= 12; n++) label(n, 134, n * 30, 30, "#1e66d0", 700);
-for (let n = 13; n <= 24; n++) label(n, 100, (n - 12) * 30, 15, "#6b7a99", 600);
+const outerNums = [], innerNums = [];
+for (let n = 1; n <= 12; n++) outerNums.push(label(n, 134, n * 30, 30, "#1e66d0", 700));
+for (let n = 13; n <= 24; n++) innerNums.push(label(n, 100, (n - 12) * 30, 15, "#6b7a99", 600));
+// Umschalter "nur passender Zahlenring": 1–12 Uhr außen aktiv, 13–24 Uhr (auch 0 Uhr = 24) innen aktiv
+function renderRings() {
+  const inner = S.oneRing && !(S.h >= 1 && S.h <= 12);
+  outerNums.forEach(t => t.setAttribute("opacity", S.oneRing && inner ? 0.15 : 1));
+  innerNums.forEach(t => {
+    t.setAttribute("opacity", S.oneRing && !inner ? 0.15 : 1);
+    t.setAttribute("fill", inner ? "#1e66d0" : "#6b7a99");
+    t.setAttribute("font-size", inner ? 19 : 15);
+    t.setAttribute("font-weight", inner ? 800 : 600);
+  });
+}
 
 const gH = mk("g", {}), gM = mk("g", {});
 mk("line", {x1: C, y1: C + 14, x2: C, y2: C - 80, stroke: "#1e66d0", "stroke-width": 13, "stroke-linecap": "round"}, gH);
@@ -294,6 +308,7 @@ $("mUp").onclick = () => nudge(0, 1);  $("mDn").onclick = () => nudge(0, -1);
 
 /* ---------- Rendern ---------- */
 function renderClock() {
+  renderRings();
   gH.setAttribute("transform", `rotate(${mod(S.h, 12) * 30 + S.m * 0.5} ${C} ${C})`);
   gM.setAttribute("transform", `rotate(${S.m * 6} ${C} ${C})`);
   const z = tzOf(S.h, S.m);
@@ -574,6 +589,12 @@ document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {
 });
 $("level").onchange = e => { setLevel(+e.target.value); newTask(); };
 $("optSound").onchange = e => { S.sound = e.target.checked; };
+try { S.oneRing = localStorage.getItem("uhr-ring") === "1"; } catch (e) {}
+$("optRing").checked = S.oneRing;
+$("optRing").onchange = e => {
+  S.oneRing = e.target.checked; renderClock();
+  try { localStorage.setItem("uhr-ring", S.oneRing ? "1" : "0"); } catch (e) {}
+};
 $("optTz").onchange = e => { S.showTz = e.target.checked; renderClock(); };
 $("optWords").onchange = e => { S.showWords = e.target.checked; renderClock(); };
 $("now").onclick = () => { const d = new Date(); S.h = d.getHours(); S.m = d.getMinutes(); setWalzen(S.h, S.m); renderClock(); };
