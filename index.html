@@ -316,7 +316,9 @@ function renderWords() {
   let txt = "";
   if (S.showWords) {
     if (S.mode === "frei" && S.walzenVisible) txt = wordsHtml(S.h, S.m);
-    else if (S.mode !== "frei" && S.task) txt = "Tipp: " + wordsHtml(S.task.h, S.task.m);
+    else if (S.mode === "stellen" && S.task) txt = wordsHtml(S.task.h, S.task.m);
+    else if (S.mode === "lesen" && S.task && (S.tries > 0 || S.done))
+      txt = (S.done ? "" : "Tipp: ") + wordsHtml(S.task.h, S.task.m);
   }
   $("words").innerHTML = txt;
 }
@@ -416,13 +418,13 @@ function check() {
     S.stars++; saveStars(); renderStars();
     $("stars").classList.remove("pop"); void $("stars").offsetWidth; $("stars").classList.add("pop");
     msg.textContent = "⭐ Super! Richtig!"; msg.className = "ok";
-    S.done = true; $("check").textContent = "Weiter";
+    S.done = true; $("check").textContent = "Weiter"; renderWords();
     return;
   }
-  S.tries++;
+  S.tries++; renderWords();
   if (S.tries >= 3) {
     msg.textContent = `Richtig wäre ${pad(t.h)}:${pad(t.m)} Uhr. Schau noch einmal hin!`;
-    msg.className = "bad"; S.done = true; $("check").textContent = "Weiter";
+    msg.className = "bad"; S.done = true; $("check").textContent = "Weiter"; renderWords();
     if (S.mode === "stellen") { S.h = t.h; S.m = t.m; renderClock(); }
     return;
   }
