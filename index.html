@@ -150,6 +150,7 @@ header h1{font-size:20px;margin:0}
   <label><input type="checkbox" id="optWords"> Zeit in Worten</label>
   <label><input type="checkbox" id="optSound" checked> Ton</label>
 </div>
+<button class="small" id="reset" style="width:100%;margin-top:24px;color:var(--muted)">↺ Zurücksetzen (Sterne, Stufe, Hunde-Album)</button>
 <canvas id="confetti"></canvas>
 <div class="overlay" id="party" hidden></div>
 <div class="overlay" id="albumView" hidden></div>
@@ -597,6 +598,12 @@ lk.addEventListener("pointerdown", lockStart);
 ["pointerup", "pointerleave", "pointercancel"].forEach(e => lk.addEventListener(e, lockStop));
 lk.addEventListener("contextmenu", e => e.preventDefault());
 
+$("reset").onclick = () => {
+  if (!confirm("Wirklich alles zurücksetzen?\n\nAlle Sterne, die Stufe und das Hunde-Album gehen verloren.")) return;
+  S.stars = 0; saveStars(); setLevel(1);
+  renderStars(); renderAlbum();
+  if (S.mode !== "frei") newTask();
+};
 $("level").value = S.level;
 renderStars();
 renderLayout();
