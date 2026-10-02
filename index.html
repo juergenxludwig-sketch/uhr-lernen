@@ -71,7 +71,7 @@ header h1{font-size:20px;margin:0}
 .tiles i{background:#8fa3cf;border:1px solid #f3f6fc;transition:opacity .8s;display:flex;
   align-items:center;justify-content:center;font-style:normal;font-size:22px;color:#fff}
 .tiles i.open{opacity:0}
-#albumView{overflow-y:auto;justify-content:flex-start}
+#albumView{overflow-y:auto;justify-content:flex-start;background:rgba(10,20,45,.94)}
 #albumGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;max-width:440px}
 #albumGrid img{width:100%;aspect-ratio:4/5;object-fit:cover;border-radius:12px;max-height:none;animation:none}
 .big{width:100%;padding:14px;border:0;border-radius:14px;background:var(--blue);color:#fff;
@@ -514,7 +514,7 @@ function celebrate(levelUp) {
 }
 
 /* ---------- Hunde-Album: jeder Stern deckt ein Feld auf ---------- */
-const DOGS = []; // Bildpfade, z. B. "hunde/hund01.webp"
+const DOGS = [1, 2, 3, 4, 5].map(i => `hunde/hund${String(i).padStart(2, "0")}.webp`);
 const PER = 20;
 const ORDER = [7, 12, 0, 18, 3, 15, 9, 1, 19, 5, 11, 16, 2, 8, 14, 4, 17, 10, 6, 13];
 (function buildTiles() {
@@ -532,7 +532,8 @@ function renderAlbum() {
   const tiles = $("tiles").children;
   ORDER.forEach((tile, k) => tiles[tile].classList.toggle("open", k < rev));
   $("albumCount").textContent = `${rev} / ${PER} ⭐`;
-  $("albumBtn").textContent = `📖 Album ansehen (${Math.min(done, DOGS.length)} Hunde)`;
+  const n = Math.min(done, DOGS.length);
+  $("albumBtn").textContent = `📖 Album ansehen (${n} ${n === 1 ? "Hund" : "Hunde"})`;
 }
 $("albumBtn").onclick = () => {
   const n = Math.min(Math.floor(S.stars / PER), DOGS.length), v = $("albumView");
