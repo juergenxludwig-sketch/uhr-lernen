@@ -162,7 +162,7 @@ const S = {
   h: 10, m: 10, mode: "frei", level: 1, walzenVisible: true,
   showTz: true, showWords: false, stars: 0,
   task: null, ans: {h: 12, m: 0}, tries: 0, done: false,
-  streak: 0, fails: 0, sound: true
+  streak: 0, sound: true
 };
 try {
   S.stars = +localStorage.getItem("uhr-stars") || 0;
@@ -439,7 +439,6 @@ function check() {
     msg.textContent = "⭐ Super! Richtig!"; msg.className = "ok";
     S.done = true; $("check").textContent = "Weiter"; renderWords();
     // Stufe hoch nach 5 Aufgaben in Folge, die beim ersten Versuch stimmen
-    S.fails = 0;
     S.streak = S.tries === 0 ? S.streak + 1 : 0;
     let levelUp = false;
     if (S.streak >= 5 && S.level < 6) { setLevel(S.level + 1); levelUp = true; }
@@ -453,9 +452,6 @@ function check() {
     msg.className = "bad"; S.done = true; $("check").textContent = "Weiter"; renderWords();
     if (S.mode === "stellen") { S.h = t.h; S.m = t.m; renderClock(); }
     else { S.ans = {h: t.h, m: t.m}; setWalzen(t.h, t.m); }
-    // nach 2 nicht gelösten Aufgaben in Folge still eine Stufe leichter
-    S.fails++;
-    if (S.fails >= 2 && S.level > 1) setLevel(S.level - 1);
     return;
   }
   msg.className = "bad";
@@ -465,7 +461,7 @@ function check() {
   else msg.textContent = "Fast! Die Stunde stimmt schon. Schau nochmal auf den langen roten Zeiger.";
 }
 function setLevel(l) {
-  S.level = l; S.streak = 0; S.fails = 0; $("level").value = l;
+  S.level = l; S.streak = 0; $("level").value = l;
   try { localStorage.setItem("uhr-level", l); } catch (e) {}
 }
 
