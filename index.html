@@ -27,7 +27,7 @@ header h1{font-size:20px;margin:0}
 .card{background:var(--card);border-radius:18px;padding:10px;margin:8px 0;
   box-shadow:0 1px 4px rgba(30,50,100,.10)}
 #clock{display:block;width:100%;height:auto;user-select:none;-webkit-user-select:none}
-#clock.drag{touch-action:none;cursor:grab}
+#clock.drag{touch-action:manipulation;cursor:grab}
 .grab{fill:transparent;stroke:none}
 #tz{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:14px;
   font-size:24px;font-weight:700;transition:background .3s}
@@ -345,13 +345,27 @@ function svgPoint(ev) {
   return {ang: mod(Math.atan2(dx, -dy) * 180 / Math.PI, 360), dist: Math.hypot(dx, dy)};
 }
 const angDiff = (a, b) => { const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
+// Nur ein Griff direkt auf einen Zeiger zieht ihn; sonst darf die Seite scrollen.
+const GRAB = 32; // Abstand zum Zeiger in Zifferblatt-Einheiten (Zifferblatt = 400)
+function hitHand(p) {
+  let best = null, bestD = GRAB;
+  for (const [hand, ang, len] of [["h", mod(S.h, 12) * 30 + S.m * 0.5, 80], ["m", S.m * 6, 150]]) {
+    const a = angDiff(p.ang, ang) * Math.PI / 180;
+    const along = p.dist * Math.cos(a), perp = p.dist * Math.sin(a);
+    if (along > 15 && along < len + GRAB && perp < bestD) { best = hand; bestD = perp; }
+  }
+  return best;
+}
+svg.addEventListener("touchstart", ev => {
+  if (canDrag() && hitHand(svgPoint(ev.touches[0]))) ev.preventDefault();
+}, {passive: false});
+svg.addEventListener("touchmove", ev => { if (dragging) ev.preventDefault(); }, {passive: false});
 svg.addEventListener("pointerdown", ev => {
   if (!canDrag()) return;
-  const p = svgPoint(ev);
-  const hA = mod(S.h, 12) * 30 + S.m * 0.5, mA = S.m * 6;
-  dragging = (p.dist < 112 && angDiff(p.ang, hA) < angDiff(p.ang, mA)) ? "h" : "m";
+  const hand = hitHand(svgPoint(ev));
+  if (!hand) return;
+  dragging = hand;
   svg.setPointerCapture(ev.pointerId);
-  moveHand(p);
 });
 svg.addEventListener("pointermove", ev => { if (dragging) moveHand(svgPoint(ev)); });
 const endDrag = () => { dragging = null; };
