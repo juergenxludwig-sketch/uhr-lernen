@@ -316,7 +316,7 @@ function renderClock() {
   gM.setAttribute("transform", `rotate(${S.m * 6} ${C} ${C})`);
   const z = tzOf(S.h, S.m);
   face.setAttribute("fill", z.face);
-  const forceTz = S.mode !== "frei" && S.level === 6;
+  const forceTz = S.mode !== "frei";
   const tzOn = S.showTz || forceTz;
   $("tz").hidden = !tzOn; $("bar").hidden = !tzOn; $("barlbl").hidden = !tzOn;
   $("tz").style.background = z.c; $("tz").style.color = z.t;
@@ -346,7 +346,7 @@ function renderLayout() {
   $("lock").hidden = !(frei && !S.walzenVisible);
   $("now").hidden = !(frei && S.walzenVisible);
   $("check").hidden = frei;
-  $("half").hidden = !(S.mode === "stellen" && S.level === 6);
+  $("half").hidden = S.mode !== "stellen";
   $("task").hidden = frei;
   $("target").hidden = S.mode !== "stellen";
   document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.mode === S.mode));
@@ -433,14 +433,12 @@ function newTask() {
   if (S.mode === "lesen") {
     S.h = t.h; S.m = t.m; S.ans = {h: 12, m: 0};
     setWalzen(12, 0);
-    $("task").textContent = S.level === 6
-      ? "Wie spät ist es? Achte auf die Tageszeit!" : "Wie spät ist es? Stelle die Walzen ein.";
+    $("task").textContent = "Wie spät ist es? Achte auch auf die Tageszeit!";
   } else {
     let s;
     do { s = genTime(S.level); } while (s.h === t.h && s.m === t.m);
     S.h = s.h; S.m = s.m;
-    $("task").textContent = S.level === 6
-      ? `Stelle die Uhr (${tzOf(t.h, t.m).name}):` : "Stelle die Uhr auf:";
+    $("task").textContent = `Stelle die Uhr (${tzOf(t.h, t.m).name}):`;
     $("target").textContent = `${pad(t.h)}:${pad(t.m)} Uhr`;
   }
   renderLayout();
@@ -448,7 +446,7 @@ function newTask() {
 function check() {
   if (S.done) { newTask(); return; }
   const t = S.task, a = S.mode === "lesen" ? S.ans : S;
-  const hOk = S.level === 6 ? a.h === t.h : mod(a.h, 12) === mod(t.h, 12);
+  const hOk = a.h === t.h;
   const mOk = a.m === t.m;
   const msg = $("msg");
   if (hOk && mOk) {
@@ -474,8 +472,9 @@ function check() {
   }
   msg.className = "bad";
   if (!hOk && !mOk) msg.textContent = "Fast! Kurzer blauer Zeiger = Stunde, langer roter = Minuten.";
-  else if (!hOk) msg.textContent = S.level === 6 && mod(a.h, 12) === mod(t.h, 12)
-    ? "Fast! Die Stunde passt, aber ist es Vormittag oder Nachmittag?" : "Fast! Die Minuten stimmen schon. Schau nochmal auf den kurzen blauen Zeiger.";
+  else if (!hOk) msg.textContent = mod(a.h, 12) === mod(t.h, 12)
+    ? (S.mode === "stellen" ? "Fast! Die Zeiger stimmen, aber die Tageszeit nicht. Drück den ☀️/🌙-Knopf!"
+       : "Fast! Die Zeiger stimmen, aber schau auf die Tageszeit: vor oder nach 12 Uhr?") : "Fast! Die Minuten stimmen schon. Schau nochmal auf den kurzen blauen Zeiger.";
   else msg.textContent = "Fast! Die Stunde stimmt schon. Schau nochmal auf den langen roten Zeiger.";
 }
 function setLevel(l) {
