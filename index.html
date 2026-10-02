@@ -235,9 +235,9 @@ for (let n = 5; n <= 60; n += 5) label(n, 165, n * 6, 13, "#d8322b", 600);
 const outerNums = [], innerNums = [];
 for (let n = 1; n <= 12; n++) outerNums.push(label(n, 134, n * 30, 30, "#1e66d0", 700));
 for (let n = 13; n <= 24; n++) innerNums.push(label(n, 100, (n - 12) * 30, 15, "#6b7a99", 600));
-// Umschalter "nur passender Zahlenring": 1–12 Uhr außen aktiv, 13–24 Uhr (auch 0 Uhr = 24) innen aktiv
+// Umschalter "nur passender Zahlenring": 0–11 Uhr außen aktiv, ab 12 Uhr innen aktiv
 function renderRings() {
-  const inner = S.oneRing && !(S.h >= 1 && S.h <= 12);
+  const inner = S.oneRing && S.h >= 12;
   outerNums.forEach(t => t.setAttribute("opacity", S.oneRing && inner ? 0.15 : 1));
   innerNums.forEach(t => {
     t.setAttribute("opacity", S.oneRing && !inner ? 0.15 : 1);
