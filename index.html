@@ -57,7 +57,23 @@ header h1{font-size:20px;margin:0}
 #task{font-size:20px;font-weight:700;text-align:center;margin:4px 0}
 #target{font:700 44px ui-monospace,Menlo,Consolas,monospace;text-align:center;color:var(--blue)}
 #msg{text-align:center;font-size:18px;font-weight:600;min-height:26px;margin:6px 0}
-#msg.ok{color:#1b8a3a}#msg.bad{color:var(--red)}
+#msg.ok{color:#1b8a3a}#msg.bad{color:#c76a00}
+#confetti{position:fixed;inset:0;pointer-events:none;z-index:60}
+.overlay{position:fixed;inset:0;background:rgba(10,20,45,.6);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;z-index:50;color:#fff;font-size:26px;font-weight:800;
+  text-align:center;padding:20px;gap:14px}
+.overlay .pemoji{font-size:110px;line-height:1;animation:pop .6s}
+.overlay img{max-width:92%;max-height:58vh;border-radius:18px;box-shadow:0 6px 30px rgba(0,0,0,.4);animation:pop .6s}
+.overlay small{font-size:15px;font-weight:500;opacity:.85}
+.album{position:relative;aspect-ratio:4/5;border-radius:14px;overflow:hidden;background:#dfe6f5}
+.album img{width:100%;height:100%;object-fit:cover;display:block}
+.tiles{position:absolute;inset:0;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(5,1fr)}
+.tiles i{background:#8fa3cf;border:1px solid #f3f6fc;transition:opacity .8s;display:flex;
+  align-items:center;justify-content:center;font-style:normal;font-size:22px;color:#fff}
+.tiles i.open{opacity:0}
+#albumView{overflow-y:auto;justify-content:flex-start}
+#albumGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;max-width:440px}
+#albumGrid img{width:100%;aspect-ratio:4/5;object-fit:cover;border-radius:12px;max-height:none;animation:none}
 .big{width:100%;padding:14px;border:0;border-radius:14px;background:var(--blue);color:#fff;
   font-size:19px;font-weight:700;margin-top:4px}
 .big.alt{background:#fff;color:var(--ink);border:2px solid var(--line)}
@@ -124,10 +140,19 @@ header h1{font-size:20px;margin:0}
   <button class="small" id="hide" style="flex:1">👁 Walzen ausblenden (Kind sieht nur die Uhr)</button>
   <button class="small" id="lock" style="flex:1" hidden><span id="lockfill"></span>🔒 Zum Einblenden 1,5 s halten</button>
 </div>
+<div class="card" id="albumCard" hidden>
+  <div class="row" style="justify-content:space-between;margin-top:0"><b>🐶 Dein Hundebild</b><span id="albumCount"></span></div>
+  <div class="album"><img id="albumImg" alt="Hund"><div class="tiles" id="tiles"></div></div>
+  <button class="small" id="albumBtn" style="width:100%;margin-top:8px">📖 Album ansehen</button>
+</div>
 <div class="opts">
   <label><input type="checkbox" id="optTz" checked> Tageszeit anzeigen</label>
   <label><input type="checkbox" id="optWords"> Zeit in Worten</label>
+  <label><input type="checkbox" id="optSound" checked> Ton</label>
 </div>
+<canvas id="confetti"></canvas>
+<div class="overlay" id="party" hidden></div>
+<div class="overlay" id="albumView" hidden></div>
 
 <script>
 "use strict";
@@ -135,9 +160,13 @@ const NS = "http://www.w3.org/2000/svg", C = 200, IH = 44;
 const S = {
   h: 10, m: 10, mode: "frei", level: 1, walzenVisible: true,
   showTz: true, showWords: false, stars: 0,
-  task: null, ans: {h: 12, m: 0}, tries: 0, done: false
+  task: null, ans: {h: 12, m: 0}, tries: 0, done: false,
+  streak: 0, fails: 0, sound: true
 };
-try { S.stars = +localStorage.getItem("uhr-stars") || 0; } catch (e) {}
+try {
+  S.stars = +localStorage.getItem("uhr-stars") || 0;
+  S.level = Math.min(6, Math.max(1, +localStorage.getItem("uhr-level") || 1));
+} catch (e) {}
 
 const $ = id => document.getElementById(id);
 const pad = n => String(n).padStart(2, "0");
@@ -303,6 +332,7 @@ function renderLayout() {
   $("target").hidden = S.mode !== "stellen";
   document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.mode === S.mode));
   renderClock();
+  renderAlbum();
 }
 function renderStars() { $("stars").textContent = "⭐ " + S.stars; }
 function canDrag() { return S.mode === "stellen" || (S.mode === "frei" && S.walzenVisible); }
@@ -386,21 +416,133 @@ function check() {
     $("stars").classList.remove("pop"); void $("stars").offsetWidth; $("stars").classList.add("pop");
     msg.textContent = "⭐ Super! Richtig!"; msg.className = "ok";
     S.done = true; $("check").textContent = "Weiter"; renderWords();
+    // Stufe hoch nach 5 Aufgaben in Folge, die beim ersten Versuch stimmen
+    S.fails = 0;
+    S.streak = S.tries === 0 ? S.streak + 1 : 0;
+    let levelUp = false;
+    if (S.streak >= 5 && S.level < 6) { setLevel(S.level + 1); levelUp = true; }
+    celebrate(levelUp);
+    renderAlbum();
     return;
   }
-  S.tries++; renderWords();
+  S.tries++; S.streak = 0; renderWords();
   if (S.tries >= 3) {
-    msg.textContent = `Richtig wäre ${pad(t.h)}:${pad(t.m)} Uhr. Schau noch einmal hin!`;
+    msg.textContent = `Schau mal, so geht's: ${pad(t.h)}:${pad(t.m)} Uhr. Beim nächsten Mal klappt's!`;
     msg.className = "bad"; S.done = true; $("check").textContent = "Weiter"; renderWords();
     if (S.mode === "stellen") { S.h = t.h; S.m = t.m; renderClock(); }
+    else { S.ans = {h: t.h, m: t.m}; setWalzen(t.h, t.m); }
+    // nach 2 nicht gelösten Aufgaben in Folge still eine Stufe leichter
+    S.fails++;
+    if (S.fails >= 2 && S.level > 1) setLevel(S.level - 1);
     return;
   }
   msg.className = "bad";
-  if (!hOk && !mOk) msg.textContent = "Noch nicht. Kurzer blauer Zeiger = Stunde, langer roter = Minuten.";
+  if (!hOk && !mOk) msg.textContent = "Fast! Kurzer blauer Zeiger = Stunde, langer roter = Minuten.";
   else if (!hOk) msg.textContent = S.level === 6 && mod(a.h, 12) === mod(t.h, 12)
-    ? "Fast! Stunde stimmt, aber Vormittag oder Nachmittag?" : "Die Stunde stimmt noch nicht. Schau auf den kurzen blauen Zeiger.";
-  else msg.textContent = "Die Minuten stimmen noch nicht. Schau auf den langen roten Zeiger.";
+    ? "Fast! Die Stunde passt, aber ist es Vormittag oder Nachmittag?" : "Fast! Die Minuten stimmen schon. Schau nochmal auf den kurzen blauen Zeiger.";
+  else msg.textContent = "Fast! Die Stunde stimmt schon. Schau nochmal auf den langen roten Zeiger.";
 }
+function setLevel(l) {
+  S.level = l; S.streak = 0; S.fails = 0; $("level").value = l;
+  try { localStorage.setItem("uhr-level", l); } catch (e) {}
+}
+
+/* ---------- Belohnung: Konfetti, Ton, Jubel ---------- */
+const COLORS = ["#ff4d6d", "#ffd23f", "#3ec1d3", "#7b5cff", "#4caf50", "#ff9f1c", "#1e66d0"];
+let parts = [], confEnd = 0, confRunning = false;
+function confetti(big) {
+  const cv = $("confetti"), W = cv.width = innerWidth, H = cv.height = innerHeight;
+  const n = big ? 260 : 110;
+  for (let i = 0; i < n; i++) parts.push({
+    x: Math.random() * W, y: -20 - Math.random() * H * 0.4,
+    vx: (Math.random() - 0.5) * 3, vy: 2 + Math.random() * 3,
+    w: 6 + Math.random() * 6, h: 4 + Math.random() * 5,
+    r: Math.random() * 6, vr: (Math.random() - 0.5) * 0.3,
+    c: COLORS[rnd(COLORS.length)]
+  });
+  confEnd = Math.max(confEnd, performance.now() + (big ? 3500 : 1800));
+  if (!confRunning) { confRunning = true; requestAnimationFrame(confStep); }
+}
+function confStep(now) {
+  const cv = $("confetti"), ctx = cv.getContext("2d");
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  const fading = now > confEnd;
+  parts = parts.filter(p => p.y < cv.height + 20 && !(fading && p.y < -10));
+  for (const p of parts) {
+    p.vy += 0.05; p.x += p.vx; p.y += p.vy; p.r += p.vr;
+    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r);
+    ctx.fillStyle = p.c; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h * Math.abs(Math.cos(p.r * 2)) + 1);
+    ctx.restore();
+  }
+  if (parts.length) requestAnimationFrame(confStep);
+  else { confRunning = false; ctx.clearRect(0, 0, cv.width, cv.height); }
+}
+let actx = null;
+function jingle(big) {
+  if (!S.sound) return;
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const notes = big ? [523, 659, 784, 1047, 784, 1047] : [659, 784, 1047];
+    notes.forEach((f, i) => {
+      const o = actx.createOscillator(), g = actx.createGain(), t0 = actx.currentTime + i * 0.11;
+      o.type = "triangle"; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(0.25, t0 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.25);
+      o.connect(g).connect(actx.destination); o.start(t0); o.stop(t0 + 0.3);
+    });
+  } catch (e) {}
+}
+let partyT = null;
+function party(html) {
+  const el = $("party");
+  el.innerHTML = html + "<small>Tippen zum Weitermachen</small>";
+  el.hidden = false;
+  clearTimeout(partyT); partyT = setTimeout(() => { el.hidden = true; }, 5000);
+}
+$("party").onclick = () => { $("party").hidden = true; };
+function celebrate(levelUp) {
+  const s = S.stars, picDone = DOGS.length > 0 && s % PER === 0;
+  const big = levelUp || picDone || s % 10 === 0;
+  confetti(big); jingle(big);
+  if (!big) return;
+  let html;
+  if (picDone) html = `<img src="${DOGS[(s / PER - 1) % DOGS.length]}" alt="Hund"><div>Neuer Hund im Album! 🐶</div>`;
+  else if (levelUp) html = `<div class="pemoji">🚀</div><div>Neue Stufe!<br>${$("level").selectedOptions[0].textContent}</div>`;
+  else html = `<div class="pemoji">🏆</div><div>${s} Sterne – du bist super!</div>`;
+  setTimeout(() => party(html), 500);
+}
+
+/* ---------- Hunde-Album: jeder Stern deckt ein Feld auf ---------- */
+const DOGS = []; // Bildpfade, z. B. "hunde/hund01.webp"
+const PER = 20;
+const ORDER = [7, 12, 0, 18, 3, 15, 9, 1, 19, 5, 11, 16, 2, 8, 14, 4, 17, 10, 6, 13];
+(function buildTiles() {
+  for (let i = 0; i < PER; i++) {
+    const t = document.createElement("i"); t.textContent = "?"; $("tiles").appendChild(t);
+  }
+})();
+function renderAlbum() {
+  const show = DOGS.length > 0 && S.mode !== "frei";
+  $("albumCard").hidden = !show;
+  if (!show) return;
+  const done = Math.floor(S.stars / PER), rev = S.stars % PER;
+  const src = DOGS[done % DOGS.length];
+  if ($("albumImg").getAttribute("src") !== src) $("albumImg").src = src;
+  const tiles = $("tiles").children;
+  ORDER.forEach((tile, k) => tiles[tile].classList.toggle("open", k < rev));
+  $("albumCount").textContent = `${rev} / ${PER} ⭐`;
+  $("albumBtn").textContent = `📖 Album ansehen (${Math.min(done, DOGS.length)} Hunde)`;
+}
+$("albumBtn").onclick = () => {
+  const n = Math.min(Math.floor(S.stars / PER), DOGS.length), v = $("albumView");
+  v.innerHTML = "<div>📖 Dein Hunde-Album</div>" + (n
+    ? `<div id="albumGrid">${DOGS.slice(0, n).map(d => `<img src="${d}" alt="Hund">`).join("")}</div>`
+    : `<div style="font-size:18px;font-weight:600">Noch kein Hund fertig.<br>Sammle ${PER} Sterne!</div>`)
+    + "<small>Tippen zum Schließen</small>";
+  v.hidden = false;
+};
+$("albumView").onclick = () => { $("albumView").hidden = true; };
 function saveStars() { try { localStorage.setItem("uhr-stars", S.stars); } catch (e) {} }
 $("check").onclick = check;
 $("half").onclick = () => { S.h = mod(S.h + 12, 24); renderClock(); };
@@ -411,7 +553,8 @@ document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {
   if (S.mode === "frei") { S.walzenVisible = true; setWalzen(S.h, S.m); renderLayout(); }
   else newTask();
 });
-$("level").onchange = e => { S.level = +e.target.value; newTask(); };
+$("level").onchange = e => { setLevel(+e.target.value); newTask(); };
+$("optSound").onchange = e => { S.sound = e.target.checked; };
 $("optTz").onchange = e => { S.showTz = e.target.checked; renderClock(); };
 $("optWords").onchange = e => { S.showWords = e.target.checked; renderClock(); };
 $("now").onclick = () => { const d = new Date(); S.h = d.getHours(); S.m = d.getMinutes(); setWalzen(S.h, S.m); renderClock(); };
@@ -432,6 +575,7 @@ lk.addEventListener("pointerdown", lockStart);
 ["pointerup", "pointerleave", "pointercancel"].forEach(e => lk.addEventListener(e, lockStop));
 lk.addEventListener("contextmenu", e => e.preventDefault());
 
+$("level").value = S.level;
 renderStars();
 renderLayout();
 requestAnimationFrame(() => setWalzen(S.h, S.m));
