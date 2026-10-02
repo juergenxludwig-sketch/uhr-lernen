@@ -239,6 +239,8 @@ for (let n = 13; n <= 24; n++) innerNums.push(label(n, 100, (n - 12) * 30, 15, "
 // (1–12 Uhr außen, 13–23 Uhr und 0 Uhr = 24 innen)
 function renderRings() {
   const inner = S.oneRing && !(S.h >= 1 && S.h <= 12);
+  // 0:00–0:59: oben innen "24/0", damit klar wird, dass 24 Uhr = 0 Uhr
+  innerNums[11].textContent = S.h === 0 ? "24/0" : "24";
   outerNums.forEach(t => t.setAttribute("opacity", S.oneRing && inner ? 0.15 : 1));
   innerNums.forEach(t => {
     t.setAttribute("opacity", S.oneRing && !inner ? 0.15 : 1);
