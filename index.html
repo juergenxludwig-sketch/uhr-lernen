@@ -155,6 +155,14 @@ header h1{font-size:20px;margin:0}
 <canvas id="confetti"></canvas>
 <div class="overlay" id="party" hidden></div>
 <div class="overlay" id="albumView" hidden></div>
+<div class="overlay" id="resetAsk" hidden>
+  <div>Wirklich alles zurücksetzen?</div>
+  <div style="font-size:17px;font-weight:500">Alle Sterne, die Stufe und das Hunde-Album gehen verloren.</div>
+  <div style="display:flex;gap:10px;width:100%;max-width:360px">
+    <button class="big alt" id="resetNo" style="flex:1">Abbrechen</button>
+    <button class="big" id="resetYes" style="flex:1;background:var(--red)">Zurücksetzen</button>
+  </div>
+</div>
 
 <script>
 "use strict";
@@ -629,12 +637,17 @@ rs.addEventListener("pointerdown", ev => {
   const f = $("resetfill"); f.style.transition = "width 2s linear"; f.style.width = "100%";
   resetT = setTimeout(() => {
     resetStop();
-    if (!confirm("Wirklich alles zurücksetzen?\n\nAlle Sterne, die Stufe und das Hunde-Album gehen verloren.")) return;
-    S.stars = 0; saveStars(); setLevel(1);
-    renderStars(); renderAlbum();
-    if (S.mode !== "frei") newTask();
+    $("resetAsk").hidden = false;
   }, 2000);
 });
+// eigene Abfrage statt confirm(): das blockieren manche eingebettete Ansichten
+$("resetNo").onclick = () => { $("resetAsk").hidden = true; };
+$("resetYes").onclick = () => {
+  $("resetAsk").hidden = true;
+  S.stars = 0; saveStars(); setLevel(1);
+  renderStars(); renderAlbum();
+  if (S.mode !== "frei") newTask();
+};
 ["pointerup", "pointerleave", "pointercancel"].forEach(e => rs.addEventListener(e, resetStop));
 rs.addEventListener("contextmenu", e => e.preventDefault());
 $("level").value = S.level;
