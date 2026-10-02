@@ -54,6 +54,7 @@ header h1{font-size:20px;margin:0}
 .colon{font:700 36px ui-monospace,monospace;color:#7fa6ff}
 .lbl{color:#8fa3cf;font-size:12px;margin-bottom:2px}
 #words{text-align:center;font-size:20px;font-weight:600;margin:8px 0 2px;min-height:26px}
+#words small{font-size:16px;font-weight:500;color:var(--muted)}
 #task{font-size:20px;font-weight:700;text-align:center;margin:4px 0}
 #target{font:700 44px ui-monospace,Menlo,Consolas,monospace;text-align:center;color:var(--blue)}
 #msg{text-align:center;font-size:18px;font-weight:600;min-height:26px;margin:6px 0}
@@ -188,6 +189,25 @@ function words(h, m) {
   }
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
+/* 24-Stunden-Lesart: "Sechzehn Uhr fünfzehn" */
+const ONES = ["","ein","zwei","drei","vier","fünf","sechs","sieben","acht","neun"];
+const TEENS = ["zehn","elf","zwölf","dreizehn","vierzehn","fünfzehn","sechzehn","siebzehn","achtzehn","neunzehn"];
+const TENS = ["","","zwanzig","dreißig","vierzig","fünfzig"];
+function numWord(n) {
+  if (n === 0) return "null";
+  if (n < 10) return ONES[n];
+  if (n < 20) return TEENS[n - 10];
+  const o = n % 10, t = TENS[Math.floor(n / 10)];
+  return o ? ONES[o] + "und" + t : t;
+}
+function words24(h, m) {
+  const s = numWord(h) + " Uhr" + (m ? " " + (m === 1 ? "eins" : numWord(m)) : "");
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+function wordsHtml(h, m) {
+  const a = words24(h, m), b = words(h, m);
+  return a === b ? a : `${a}<br><small>„${b}“</small>`;
+}
 
 /* ---------- Zifferblatt ---------- */
 const svg = $("clock");
@@ -295,10 +315,10 @@ function renderClock() {
 function renderWords() {
   let txt = "";
   if (S.showWords) {
-    if (S.mode === "frei" && S.walzenVisible) txt = words(S.h, S.m);
-    else if (S.mode !== "frei" && S.task) txt = "Tipp: " + words(S.task.h, S.task.m);
+    if (S.mode === "frei" && S.walzenVisible) txt = wordsHtml(S.h, S.m);
+    else if (S.mode !== "frei" && S.task) txt = "Tipp: " + wordsHtml(S.task.h, S.task.m);
   }
-  $("words").textContent = txt;
+  $("words").innerHTML = txt;
 }
 function renderLayout() {
   const frei = S.mode === "frei";
