@@ -117,6 +117,9 @@ header h1{font-size:20px;margin:0}
   <div id="barlbl"></div>
 </div>
 
+<label class="card" id="liveRow" style="display:flex;align-items:center;gap:12px;font-size:19px;font-weight:700;cursor:pointer">
+  <input type="checkbox" id="optLive" style="width:26px;height:26px"> 🕐 Aktuelle Uhrzeit (läuft mit)
+</label>
 <div class="card" id="digitalCard">
   <div id="digital">
     <div class="wwrap"><span class="lbl">Stunde</span>
@@ -136,7 +139,6 @@ header h1{font-size:20px;margin:0}
 <div id="msg"></div>
 <div id="words"></div>
 <div class="row" id="freiRow">
-  <button class="small" id="now">Jetzt</button>
   <button class="small" id="hide" style="flex:1">👁 Walzen ausblenden (Kind sieht nur die Uhr)</button>
   <button class="small" id="lock" style="flex:1" hidden><span id="lockfill"></span>🔒 Zum Einblenden 1,5 s halten</button>
 </div>
@@ -301,12 +303,13 @@ const wH = makeWalze($("wh"), 24, i => walzeChanged("h", i));
 const wM = makeWalze($("wm"), 60, i => walzeChanged("m", i));
 function walzeChanged(kind, v) {
   if (S.mode === "lesen") { S.ans[kind] = v; }
-  else if (S.mode === "frei") { S[kind] = v; }
+  else if (S.mode === "frei") { S[kind] = v; if (liveT) setLive(false); }
   renderClock();
 }
 function setWalzen(h, m) { wH.set(h); wM.set(m); }
 function walzeTime() { return S.mode === "lesen" ? S.ans : S; }
 function nudge(dh, dm) {
+  if (liveT) setLive(false);
   const t = walzeTime();
   let total = t.h * 60 + t.m + dh * 60 + dm;
   total = mod(total, 1440);
@@ -352,7 +355,7 @@ function renderLayout() {
   $("freiRow").hidden = !frei;
   $("hide").hidden = !(frei && S.walzenVisible);
   $("lock").hidden = !(frei && !S.walzenVisible);
-  $("now").hidden = !(frei && S.walzenVisible);
+  $("liveRow").hidden = !frei;
   $("check").hidden = frei;
   $("half").hidden = S.mode !== "stellen";
   $("task").hidden = frei;
@@ -399,6 +402,7 @@ const endDrag = () => { dragging = null; };
 svg.addEventListener("pointerup", endDrag);
 svg.addEventListener("pointercancel", endDrag);
 function moveHand(p) {
+  if (liveT) setLive(false);
   if (dragging === "m") {
     const nm = Math.round(p.ang / 6) % 60, old = S.m;
     if (old > 45 && nm < 15) S.h = mod(S.h + 1, 24);
@@ -594,6 +598,7 @@ $("half").onclick = () => { S.h = mod(S.h + 12, 24); renderClock(); };
 /* ---------- Bedienung ---------- */
 document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {
   S.mode = b.dataset.mode;
+  setLive(false);
   if (S.mode === "frei") { S.walzenVisible = true; setWalzen(S.h, S.m); renderLayout(); }
   else newTask();
 });
@@ -607,7 +612,20 @@ $("optRing").onchange = e => {
 };
 $("optTz").onchange = e => { S.showTz = e.target.checked; renderClock(); };
 $("optWords").onchange = e => { S.showWords = e.target.checked; renderClock(); };
-$("now").onclick = () => { const d = new Date(); S.h = d.getHours(); S.m = d.getMinutes(); setWalzen(S.h, S.m); renderClock(); };
+/* ---------- Aktuelle Uhrzeit, läuft mit ---------- */
+let liveT = null;
+function liveTick() {
+  const d = new Date();
+  if (d.getHours() !== S.h || d.getMinutes() !== S.m) {
+    S.h = d.getHours(); S.m = d.getMinutes(); setWalzen(S.h, S.m); renderClock();
+  }
+}
+function setLive(on) {
+  $("optLive").checked = on;
+  clearInterval(liveT); liveT = null;
+  if (on) { liveTick(); liveT = setInterval(liveTick, 1000); }
+}
+$("optLive").onchange = e => setLive(e.target.checked);
 $("hide").onclick = () => { S.walzenVisible = false; renderLayout(); };
 
 let lockT = null;
